@@ -6,51 +6,66 @@ abstract class BaseMvpPresenter<V : MvpView, S : MvpPresenter.State> : MvpPresen
 
     companion object {
         private const val STATUS_IDLE = 0
-        private const val STATUS_RUNNING = 1
-        private const val STATUS_RELEASED = 2
+        private const val STATUS_STARTED = 1
+        private const val STATUS_STOPPED = 2
     }
 
     private val status = AtomicInteger(STATUS_IDLE)
     private var _view: V? = null
     protected val view: V
         get() {
-            checkNotReleased()
+            checkStarted()
             return requireNotNull(this._view) { "View is not attached" }
         }
     protected val isViewAttached: Boolean
         get() {
-            checkNotReleased()
+            checkStarted()
             return (null != _view)
         }
 
+    override fun start(savedState: S?) {
+        when (status.getAndSet(STATUS_STARTED)) {
+            STATUS_IDLE -> {
+                onStart(savedState)
+            }
+            STATUS_STARTED -> {
+                // do nothing
+            }
+            STATUS_STOPPED -> {
+                throw IllegalStateException("This instance is stopped.")
+            }
+        }
+    }
+
+    override fun stop() {
+        when (status.getAndSet(STATUS_STOPPED)) {
+            STATUS_IDLE -> {
+                throw IllegalStateException("This instance is not started.")
+            }
+            STATUS_STARTED -> {
+                onStop()
+            }
+            STATUS_STOPPED -> {
+                // do nothing
+            }
+        }
+    }
+
     override fun attachView(view: V) {
-        checkNotReleased()
+        checkStarted()
         require(null == this._view) { "View is already attached" }
         this._view = view
         onViewAttached()
     }
 
     override fun detachView(view: V) {
-        checkNotReleased()
+        checkStarted()
         require(this._view == view) { "Incorrect View is trying to be detached" }
         this._view = null
         onViewDetached()
     }
 
-    override fun run() {
-        checkNotReleased()
-        if (status.compareAndSet(STATUS_IDLE, STATUS_RUNNING)) {
-            onStart()
-        }
-    }
-
-    override fun release() {
-        if (STATUS_RUNNING == status.getAndSet(STATUS_RELEASED)) {
-            onStop()
-        }
-    }
-
-    abstract fun onStart()
+    abstract fun onStart(savedState: S?)
     abstract fun onStop()
     abstract fun onViewAttached()
 
@@ -58,7 +73,10 @@ abstract class BaseMvpPresenter<V : MvpView, S : MvpPresenter.State> : MvpPresen
 
     }
 
-    protected fun checkNotReleased() {
-        check(STATUS_RELEASED != status.get()) { "This instance is released." }
+    protected fun checkStarted() {
+        when (status.get()) {
+            STATUS_IDLE -> throw IllegalStateException("This instance is not started.")
+            STATUS_STOPPED -> throw java.lang.IllegalStateException("This instance is stopped")
+        }
     }
 }
