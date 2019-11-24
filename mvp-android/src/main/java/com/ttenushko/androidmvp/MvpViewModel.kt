@@ -25,26 +25,29 @@ abstract class MvpViewModel<V : MvpView, S : MvpPresenter.State, P : MvpPresente
 
     fun run(savedState: Bundle?) {
         if (status.compareAndSet(STATUS_IDLE, STATUS_RUNNING)) {
-            _presenter = onCreatePresenter(savedState)
-            _presenter.run()
+            val state = savedState?.let { onRestoreState(it) }
+            _presenter = onCreatePresenter()
+            _presenter.start(state)
         }
     }
 
     override fun onCleared() {
         super.onCleared()
         if (STATUS_RUNNING == status.getAndSet(STATUS_CLEARED)) {
-            _presenter.release()
+            _presenter.stop()
         }
     }
 
     fun saveState(outState: Bundle) {
         checkRunning()
-        onSaveState(_presenter, outState)
+        onSaveState(_presenter.saveState(), outState)
     }
 
-    abstract fun onCreatePresenter(savedState: Bundle?): P
+    protected abstract fun onCreatePresenter(): P
 
-    abstract fun onSaveState(presenter: MvpPresenter<V, S>, outState: Bundle)
+    abstract fun onSaveState(state: S?, outState: Bundle)
+
+    abstract fun onRestoreState(savedState: Bundle): S?
 
     private fun checkRunning() {
         when (status.get()) {
