@@ -2,6 +2,9 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 apply plugin: 'kotlin-android-extensions'
 
+archivesBaseName = "mvp-android"
+version = "$MVP_ANDROID_VERSION_NAME"
+
 android {
     compileSdkVersion toolVersions.android.compileSdk
 
@@ -22,6 +25,15 @@ android {
         }
     }
 
+}
+
+android.libraryVariants.all { variant ->
+    variant.outputs.each { output ->
+        if (output.outputFileName != null && output.outputFileName.endsWith('.aar')) {
+            def fileName = "${archivesBaseName}-${version}-${variant.buildType.name}.aar"
+            output.outputFileName = fileName
+        }
+    }
 }
 
 dependencies {
